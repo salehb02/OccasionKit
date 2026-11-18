@@ -1,0 +1,28 @@
+{
+    "name": "OccasionKit.Editor",
+    "rootNamespace": "OccasionKit.EditorTools",
+    "references": [
+        "OccasionKit",
+        "OccasionKit.Notifications",
+        "Unity.Addressables",
+        "Unity.Addressables.Editor",
+        "Unity.ResourceManager"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.mobile.notifications",
+            "expression": "2.0.0",
+            "define": "OCCASIONKIT_NOTIFICATIONS"
+        }
+    ],
+    "noEngineReferences": false
+}

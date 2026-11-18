@@ -1,0 +1,28 @@
+{
+    "name": "OccasionKit.Notifications",
+    "rootNamespace": "OccasionKit.Notifications",
+    "references": [
+        "OccasionKit",
+        "Unity.Notifications.Android"
+    ],
+    "includePlatforms": [
+        "Android",
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "OCCASIONKIT_NOTIFICATIONS"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.mobile.notifications",
+            "expression": "2.0.0",
+            "define": "OCCASIONKIT_NOTIFICATIONS"
+        }
+    ],
+    "noEngineReferences": false
+}

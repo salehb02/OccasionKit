@@ -1,0 +1,21 @@
+{
+  "name": "com.occasionkit.core",
+  "displayName": "OccasionKit",
+  "version": "1.0.0",
+  "unity": "2022.3",
+  "license": "MIT",
+  "author": {
+    "name": "Saleh Bagheri"
+  },
+  "description": "Seasonal occasions (Nowruz, Yalda, Halloween, ...) for Unity apps. Time windows in Gregorian, Persian or Hijri calendars, alternate Android launcher icons, store and language targeting, themed Addressable content, greetings and local notifications. Catalogs load from Addressables; only the device clock is used.",
+  "keywords": [
+    "occasion",
+    "seasonal",
+    "event",
+    "app icon",
+    "nowruz"
+  ],
+  "dependencies": {
+    "com.unity.addressables": "1.21.0"
+  }
+}
