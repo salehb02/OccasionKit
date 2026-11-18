@@ -6,11 +6,11 @@ using UnityEngine;
 
 namespace OccasionKit.EditorTools
 {
-    /// <summary>One launcher icon. Built into the app as an Android adaptive icon.</summary>
+    /// <summary>One launcher icon. Built into the app as an Android adaptive icon and an iOS alternate app icon.</summary>
     [Serializable]
     public class AppIconVariant
     {
-        [Tooltip("Lowercase letters, digits and _. Becomes the Android alias name, so never rename a released icon.")]
+        [Tooltip("Lowercase letters, digits and _. Becomes the Android alias and iOS icon name, so never rename a released icon.")]
         public string id = "";
         public string displayName = "";
 
@@ -22,7 +22,7 @@ namespace OccasionKit.EditorTools
 
         public Color backgroundColor = Color.white;
 
-        [Tooltip("Optional. Android 13+ themed icons: a one-color silhouette on transparency, same layout as the foreground.")]
+        [Tooltip("Optional. Android 13+ themed icons: a one-color silhouette on transparency, same layout as the foreground. Not used on iOS.")]
         public Texture2D monochrome;
 
         [Tooltip("Optional square icon for Android 7.1 and older. Empty: made from the layers. Only built when Min API Level is below 26.")]
@@ -32,8 +32,8 @@ namespace OccasionKit.EditorTools
     }
 
     /// <summary>
-    /// Editor-only project settings: icon set and store names. Never shipped; the build step turns the icons into
-    /// Android resources and the catalogs refer to them by id.
+    /// Editor-only project settings: icon set and store names. Never shipped; the build steps turn the icons into
+    /// Android resources and iOS alternate app icons, and the catalogs refer to them by id.
     /// </summary>
     public sealed class OccasionKitSettings : ScriptableObject
     {

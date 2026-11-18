@@ -3,11 +3,13 @@
     "rootNamespace": "OccasionKit.Notifications",
     "references": [
         "OccasionKit",
-        "Unity.Notifications.Android"
+        "Unity.Notifications.Android",
+        "Unity.Notifications.iOS"
     ],
     "includePlatforms": [
         "Android",
-        "Editor"
+        "Editor",
+        "iOS"
     ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

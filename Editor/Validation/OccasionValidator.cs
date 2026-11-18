@@ -31,7 +31,7 @@ namespace OccasionKit.EditorTools
         private static readonly Regex IconIdPattern = new Regex(@"^[a-z][a-z0-9_]*$");
         private static readonly Regex OccasionIdPattern = new Regex(@"^[a-z0-9][a-z0-9_.\-]*$");
 
-        /// <summary>Icon ids become Android resource and component names.</summary>
+        /// <summary>Icon ids become Android resource and component names and iOS alternate icon names.</summary>
         public static bool IsValidIconId(string id) => !string.IsNullOrEmpty(id) && id != OccasionSystem.DefaultIconId && IconIdPattern.IsMatch(id);
 
         public static List<ValidationIssue> Run(OccasionKitSettings settings, IReadOnlyList<OccasionCatalog> catalogs)
@@ -105,7 +105,7 @@ namespace OccasionKit.EditorTools
                 if (icon.id == OccasionSystem.DefaultIconId)
                     AddIcon(issues, IssueSeverity.Error, i, $"{name}: \"default\" is reserved for the Player Settings icon.");
                 else if (!IsValidIconId(icon.id))
-                    AddIcon(issues, IssueSeverity.Error, i, $"{name}: ids must start with a lowercase letter and use only a-z, 0-9 and _ (they become Android resource names).");
+                    AddIcon(issues, IssueSeverity.Error, i, $"{name}: ids must start with a lowercase letter and use only a-z, 0-9 and _ (they become Android resource and iOS icon names).");
                 else if (!seen.Add(icon.id))
                     AddIcon(issues, IssueSeverity.Error, i, $"{name} is defined twice.");
 

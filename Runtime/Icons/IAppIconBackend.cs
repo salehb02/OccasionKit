@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace OccasionKit
 {
-    /// <summary>Switches the launcher icon on one platform. Icons are built into the app; this only picks one.</summary>
+    /// <summary>Switches the app icon on one platform. Icons are built into the app; this only picks one.</summary>
     public interface IAppIconBackend
     {
         bool IsSupported { get; }
@@ -22,6 +22,25 @@ namespace OccasionKit
         void CancelScheduledChanges();
     }
 
+    /// <summary>When a backend can switch the icon.</summary>
+    public enum IconSwitchMoment
+    {
+        /// <summary>On the way to the background, so the player never sees it happen (Android). Later changes are scheduled.</summary>
+        Background = 0,
+
+        /// <summary>
+        /// Only while the app is in front (iOS, which shows an alert each time): shortly after launch and after each return
+        /// to the app. Nothing is scheduled; the icon can't change while the app is closed.
+        /// </summary>
+        Foreground = 1,
+    }
+
+    /// <summary>Optional on an <see cref="IAppIconBackend"/>. Backends without it switch in the background.</summary>
+    public interface IAppIconSwitchMoment
+    {
+        IconSwitchMoment SwitchMoment { get; }
+    }
+
     public static class AppIconBackends
     {
         public static IAppIconBackend CreateDefault()
@@ -30,6 +49,8 @@ namespace OccasionKit
             return new EditorAppIconBackend();
 #elif UNITY_ANDROID
             return new AndroidAppIconBackend();
+#elif UNITY_IOS
+            return new IOSAppIconBackend();
 #else
             return new NullAppIconBackend();
 #endif

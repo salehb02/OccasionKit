@@ -7,8 +7,11 @@ using UnityEngine;
 
 namespace OccasionKit
 {
-    /// <summary>Pretends to switch icons in the Editor so the whole flow can be tested in Play Mode.</summary>
-    public sealed class EditorAppIconBackend : IAppIconBackend
+    /// <summary>
+    /// Pretends to switch icons in the Editor so the whole flow can be tested in Play Mode. Switches when the active
+    /// build target's device would: in the background for Android, in the foreground for iOS.
+    /// </summary>
+    public sealed class EditorAppIconBackend : IAppIconBackend, IAppIconSwitchMoment
     {
         private const string CurrentKey = "OccasionKit.EditorCurrentIcon";
 
@@ -19,6 +22,12 @@ namespace OccasionKit
         public static IReadOnlyList<IconChange> Scheduled { get; private set; } = Array.Empty<IconChange>();
 
         public bool IsSupported { get => true; }
+
+#if UNITY_IOS
+        public IconSwitchMoment SwitchMoment { get => IconSwitchMoment.Foreground; }
+#else
+        public IconSwitchMoment SwitchMoment { get => IconSwitchMoment.Background; }
+#endif
 
         public IReadOnlyList<string> Icons
         {

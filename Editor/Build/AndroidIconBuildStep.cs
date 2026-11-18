@@ -6,7 +6,6 @@ using System.Xml;
 using UnityEditor;
 using UnityEditor.Android;
 using UnityEditor.Build;
-using UnityEditor.Build.Reporting;
 using UnityEngine;
 
 namespace OccasionKit.EditorTools
@@ -16,7 +15,7 @@ namespace OccasionKit.EditorTools
     /// main activity to the aliases, only "default" starts enabled), adaptive icon resources, the receiver that applies
     /// scheduled changes, and a keep rule for the Java side. Does nothing until the project has an icon.
     /// </summary>
-    internal sealed class AndroidIconBuildStep : IPreprocessBuildWithReport, IPostGenerateGradleAndroidProject
+    internal sealed class AndroidIconBuildStep : IPostGenerateGradleAndroidProject
     {
         private const string AndroidNs = "http://schemas.android.com/apk/res/android";
         private const string AliasPrefix = "com.occasionkit.Icon_";
@@ -31,28 +30,10 @@ namespace OccasionKit.EditorTools
         // Run after other plugins have edited the manifest.
         public int callbackOrder { get => 1000; }
 
-        public void OnPreprocessBuild(BuildReport report)
-        {
-            if (report.summary.platform != BuildTarget.Android)
-                return;
-
-            var settings = OccasionKitSettings.Instance;
-
-            if (settings == null)
-                return;
-
-            var errors = OccasionValidator.ValidateIcons(settings).Where(i => i.Severity == IssueSeverity.Error).ToList();
-
-            if (errors.Count > 0)
-                throw new BuildFailedException("OccasionKit icon set has errors (Window > OccasionKit > Validation):\n" + string.Join("\n", errors.Select(e => "• " + e.Message)));
-        }
-
         public void OnPostGenerateGradleAndroidProject(string path)
         {
             var settings = OccasionKitSettings.Instance;
-            var icons = settings != null
-                ? settings.icons.Where(i => i != null && i.foreground != null && OccasionValidator.IsValidIconId(i.id)).GroupBy(i => i.id).Select(g => g.First()).ToList()
-                : new List<AppIconVariant>();
+            var icons = IconBuild.GetIcons(settings);
 
             var retired = ReleasedIconRegistry.Load().Where(id => icons.All(i => i.id != id)).ToList();
 

@@ -97,7 +97,9 @@ namespace OccasionKit.EditorTools
             if (OKStyles.Section("sim.changes", "Icon changes, next 90 days"))
             {
                 var changes = OccasionEvaluator.GetIconChanges(occasions, time, time.AddDays(90), context, isAvailable, OccasionSystem.DefaultIconId);
-                GUILayout.Label("What the app hands Android when it goes to the background, so the icon also changes while the app is closed.", OKStyles.MutedWrap);
+                GUILayout.Label(EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS
+                    ? "On iOS each change shows on the next launch or return to the app, with a system alert; the icon can't change while the app is closed."
+                    : "What the app hands Android when it goes to the background, so the icon also changes while the app is closed.", OKStyles.MutedWrap);
 
                 if (changes.Count == 0)
                     GUILayout.Label("No changes.", OKStyles.Muted);

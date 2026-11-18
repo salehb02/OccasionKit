@@ -316,9 +316,10 @@ namespace OccasionKit.EditorTools
             return dx * dx + dy * dy <= radius * radius;
         }
 
-        public byte[] EncodePng()
+        /// <param name="alpha">False writes an RGB file, for icons that must be opaque (iOS).</param>
+        public byte[] EncodePng(bool alpha = true)
         {
-            var texture = new Texture2D(Width, Height, TextureFormat.RGBA32, false);
+            var texture = new Texture2D(Width, Height, alpha ? TextureFormat.RGBA32 : TextureFormat.RGB24, false);
 
             try
             {

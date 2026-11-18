@@ -56,7 +56,7 @@ OccasionKit.Notifications.OccasionNotifications.Enable(""Events"");";
                 SeverityFilter(IssueSeverity.Warning, _warningCount, "Warnings");
                 SeverityFilter(IssueSeverity.Info, infoCount, "Notes");
                 GUILayout.Space(8);
-                GUILayout.Label("Icon errors fail Android builds. Catalog problems don't block a build, but the runtime skips what it can't use.", OKStyles.Muted);
+                GUILayout.Label("Icon errors fail Android and iOS builds. Catalog problems don't block a build, but the runtime skips what it can't use.", OKStyles.Muted);
                 GUILayout.FlexibleSpace();
 
                 if (GUILayout.Button(new GUIContent("Check again", "Rescan catalogs and settings now"), EditorStyles.toolbarButton, GUILayout.Width(84)))
@@ -145,6 +145,15 @@ OccasionKit.Notifications.OccasionNotifications.Enable(""Events"");";
                     OKStyles.MutedWrap);
                 EditorGUILayout.LabelField("Min API level", $"{(int)PlayerSettings.Android.minSdkVersion}{((int)PlayerSettings.Android.minSdkVersion >= 26 ? "  (adaptive icons only)" : "  (legacy PNGs are built too)")}");
                 EditorGUILayout.LabelField("Released icons", $"{ReleasedIconRegistry.LoadCached().Count} in {ReleasedIconRegistry.FilePath}");
+            }
+
+            if (OKStyles.Section("settings.ios", "iOS"))
+            {
+                GUILayout.Label(
+                    "Each iOS build adds one alternate app icon per icon to the Xcode project's asset catalog (Xcode 14 or newer); the primary icon stays the Player Settings icon. " +
+                    "iOS only lets an app change its icon while it's open, and shows an alert each time, so the icon switches shortly after launch or when the player comes back to the app. " +
+                    "It can't change while the app is closed.",
+                    OKStyles.MutedWrap);
             }
 
             if (OKStyles.Section("settings.integration", "Integration", false))

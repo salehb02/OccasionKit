@@ -157,7 +157,7 @@ namespace OccasionKit.EditorTools
             EditorGUIUtility.labelWidth = 140;
 
             GUILayout.Label(icon.Title, OKStyles.Title);
-            GUILayout.Label($"Android alias com.occasionkit.Icon_{icon.id}", OKStyles.Subtitle);
+            GUILayout.Label($"Android alias com.occasionkit.Icon_{icon.id}  ·  iOS alternate icon occasionkit_{icon.id}", OKStyles.Subtitle);
             DrawIssues(i => i.IconIndex == _selectedIcon);
 
             if (OKStyles.Section("icon.layers", "Layers"))
@@ -208,7 +208,7 @@ namespace OccasionKit.EditorTools
 
         private void DrawIconIdField(AppIconVariant icon, SerializedProperty id)
         {
-            var next = EditorGUILayout.DelayedTextField(new GUIContent("Id", "Becomes the Android alias and resource names. Lowercase a-z, 0-9, _."), id.stringValue).Trim();
+            var next = EditorGUILayout.DelayedTextField(new GUIContent("Id", "Becomes the Android alias and resource names and the iOS alternate icon name. Lowercase a-z, 0-9, _."), id.stringValue).Trim();
 
             if (next == id.stringValue)
                 return;

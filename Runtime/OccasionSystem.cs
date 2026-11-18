@@ -11,8 +11,10 @@ namespace OccasionKit
 {
     /// <summary>
     /// Entry point. Call <see cref="InitializeAsync"/> once (after any Addressables catalog update), then read
-    /// <see cref="Active"/> or listen to <see cref="Changed"/>. The launcher icon is switched when the app goes to the
-    /// background, never while it's in front, and upcoming changes are handed to the OS for while it's closed.
+    /// <see cref="Active"/> or listen to <see cref="Changed"/>. On Android the launcher icon is switched when the app goes
+    /// to the background, never while it's in front, and upcoming changes are handed to the OS for while it's closed.
+    /// iOS only allows switching while the app is in front, so there it happens shortly after launch and after each
+    /// return to the app.
     /// </summary>
     public static class OccasionSystem
     {
@@ -34,6 +36,7 @@ namespace OccasionKit
         private static string _signature;
         private static bool _catalogsLoaded;
         private static bool? _iconsEnabled;
+        private static bool _applyPending;
 
         public static bool IsInitialized { get; private set; }
 
@@ -87,6 +90,10 @@ namespace OccasionKit
                 PlayerPrefs.SetInt(PrefsIconsEnabled, value ? 1 : 0);
                 PlayerPrefs.Save();
                 Refresh(true);
+
+                // The player just changed it in the app, so on iOS show the result (and its alert) right away.
+                if (SwitchesInForeground)
+                    _applyPending = true;
             }
         }
 
@@ -244,8 +251,8 @@ namespace OccasionKit
         }
 
         /// <summary>
-        /// Switches the icon right away instead of on the next trip to the background. Some launchers restart the app
-        /// when its icon changes, so only use this from a debug menu.
+        /// Switches the icon right away instead of on the next trip to the background (Android) or return to the app
+        /// (iOS). On Android some launchers restart the app when its icon changes, so only use it from a debug menu there.
         /// </summary>
         public static bool ApplyIconNow()
         {
@@ -272,6 +279,7 @@ namespace OccasionKit
                 _backend.CancelScheduledChanges();
 
             Refresh(true);
+            _applyPending = SwitchesInForeground;
             Log($"Ready: {_occasions.Count} occasions from {_catalogs.Count} catalogs, {Context}, icons: {string.Join(", ", _backend.Icons)}");
         }
 
@@ -379,10 +387,24 @@ namespace OccasionKit
             Raise(Changed);
         }
 
+        /// <summary>Called about once a second from Update, so only while the app is active.</summary>
         internal static void Tick()
         {
-            if (IsInitialized && OccasionClock.Now >= _nextBoundary)
+            if (!IsInitialized)
+                return;
+
+            if (OccasionClock.Now >= _nextBoundary)
                 Refresh(false);
+
+            // iOS: after launch or a return to the app. A boundary passing mid-session waits for the next return,
+            // so the system alert doesn't interrupt play.
+            if (_applyPending)
+            {
+                _applyPending = false;
+
+                if (CanManageIcon)
+                    ApplyIcon();
+            }
         }
 
         internal static void OnBackground()
@@ -391,8 +413,9 @@ namespace OccasionKit
                 return;
 
             Refresh(false);
+            _applyPending = false;
 
-            if (CanManageIcon)
+            if (CanManageIcon && !SwitchesInForeground)
             {
                 ApplyIcon();
                 ScheduleIconChanges();
@@ -410,7 +433,11 @@ namespace OccasionKit
                 _backend.CancelScheduledChanges();
 
             Refresh(false);
+            _applyPending = SwitchesInForeground;
         }
+
+        /// <summary>The backend can only switch while the app is in front (iOS).</summary>
+        private static bool SwitchesInForeground { get => _backend is IAppIconSwitchMoment timing && timing.SwitchMoment == IconSwitchMoment.Foreground; }
 
         /// <summary>Loading the catalogs failed: keep whatever icon is showing rather than reverting it.</summary>
         private static bool CanManageIcon { get => _config != null && _config.ManageAppIcon && _catalogsLoaded && _backend != null && _backend.IsSupported; }
@@ -514,6 +541,7 @@ namespace OccasionKit
             _signature = null;
             _catalogsLoaded = false;
             _iconsEnabled = null;
+            _applyPending = false;
             IsInitialized = false;
             Context = null;
             Changed = null;

@@ -4,6 +4,8 @@ using System.Linq;
 using UnityEngine;
 #if UNITY_ANDROID && !UNITY_EDITOR
 using Unity.Notifications.Android;
+#elif UNITY_IOS && !UNITY_EDITOR
+using Unity.Notifications.iOS;
 #endif
 
 namespace OccasionKit.Notifications
@@ -25,9 +27,10 @@ namespace OccasionKit.Notifications
     }
 
     /// <summary>
-    /// Local notifications for occasions that have one enabled. Compiled only when com.unity.mobile.notifications is
-    /// installed. Call <see cref="Enable"/> once; notifications are rescheduled every time the app goes to the background.
-    /// Asking for the POST_NOTIFICATIONS permission (Android 13+) is up to the app.
+    /// Local notifications for occasions that have one enabled, on Android and iOS. Compiled only when
+    /// com.unity.mobile.notifications is installed. Call <see cref="Enable"/> once; notifications are rescheduled every
+    /// time the app goes to the background. Asking for permission is up to the app: POST_NOTIFICATIONS on Android 13+,
+    /// and on iOS either the package's "Request Authorization on App Launch" setting or an AuthorizationRequest.
     /// </summary>
     public static class OccasionNotifications
     {
@@ -44,6 +47,7 @@ namespace OccasionKit.Notifications
 #endif
 
         /// <param name="text">Optional: localized title and body per occurrence. Default: the occasion's own fields.</param>
+        /// <param name="channelId">Android notification channel; on iOS it groups the notifications (thread identifier).</param>
         public static void Enable(string channelName = "Events", string channelDescription = "Seasonal events", int days = 30, Func<OccasionInstance, (string title, string body)> text = null, string channelId = "occasionkit")
         {
             _channelId = channelId;
@@ -154,6 +158,45 @@ namespace OccasionKit.Notifications
             {
                 Debug.LogWarning($"[OccasionKit] Scheduling notifications failed: {e.Message}");
             }
+#elif UNITY_IOS && !UNITY_EDITOR
+            try
+            {
+                var ids = new List<string>();
+
+                foreach (var notification in planned)
+                {
+                    var fireTime = OccasionClock.ToDeviceTime(notification.FireTime);
+                    var id = $"occasionkit.{notification.Instance.Key}";
+
+                    iOSNotificationCenter.ScheduleNotification(new iOSNotification(id)
+                    {
+                        Title = notification.Title,
+                        Body = notification.Body,
+                        ThreadIdentifier = _channelId,
+                        ShowInForeground = false,
+                        Trigger = new iOSNotificationCalendarTrigger
+                        {
+                            Year = fireTime.Year,
+                            Month = fireTime.Month,
+                            Day = fireTime.Day,
+                            Hour = fireTime.Hour,
+                            Minute = fireTime.Minute,
+                            Second = fireTime.Second,
+                            UtcTime = false,
+                            Repeats = false,
+                        },
+                    });
+
+                    ids.Add(id);
+                }
+
+                PlayerPrefs.SetString(PrefsIds, string.Join(",", ids));
+                PlayerPrefs.Save();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[OccasionKit] Scheduling notifications failed: {e.Message}");
+            }
 #else
             foreach (var notification in planned)
                 Debug.Log($"[OccasionKit] Would notify at {notification.FireTime:yyyy-MM-dd HH:mm}: {notification.Title} — {notification.Body}");
@@ -180,6 +223,18 @@ namespace OccasionKit.Notifications
                     {
                         Debug.LogWarning($"[OccasionKit] Cancelling notification {id} failed: {e.Message}");
                     }
+                }
+            }
+#elif UNITY_IOS && !UNITY_EDITOR
+            foreach (var id in value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                try
+                {
+                    iOSNotificationCenter.RemoveScheduledNotification(id);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"[OccasionKit] Cancelling notification {id} failed: {e.Message}");
                 }
             }
 #endif

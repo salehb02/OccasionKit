@@ -10,7 +10,7 @@ using Object = UnityEngine.Object;
 
 namespace OccasionKit.EditorTools
 {
-    /// <summary>Checks calendars, rules, image processing and the Android build step against known values.</summary>
+    /// <summary>Checks calendars, rules, image processing and the Android and iOS build steps against known values.</summary>
     internal static class OccasionKitSelfTest
     {
         private static readonly StringBuilder Report = new StringBuilder();
@@ -29,8 +29,10 @@ namespace OccasionKit.EditorTools
             Safe("Rules", Rules);
             Safe("Parsing and languages", Parsing);
             Safe("Runtime facade", RuntimeFacade);
+            Safe("iOS icon timing", ForegroundSwitching);
             Safe("Images", Images);
             Safe("Android build step", BuildStep);
+            Safe("iOS build step", IOSBuildStep);
 
             var summary = $"[OccasionKit] Self-test: {_passed} passed, {_failed} failed\n{Report}";
 
@@ -132,13 +134,14 @@ namespace OccasionKit.EditorTools
             Note("Device language here: " + LanguageCodes.FromDevice());
         }
 
-        private sealed class FakeBackend : IAppIconBackend
+        private sealed class FakeBackend : IAppIconBackend, IAppIconSwitchMoment
         {
             public readonly List<string> Applied = new List<string>();
             public IReadOnlyList<IconChange> LastSchedule = Array.Empty<IconChange>();
             public int Cancels;
 
             public bool IsSupported { get => true; }
+            public IconSwitchMoment SwitchMoment { get; set; } = IconSwitchMoment.Background;
             public IReadOnlyList<string> Icons { get; } = new[] { "default", "halloween", "cup" };
             public string CurrentIcon { get; private set; } = "default";
 
@@ -316,6 +319,103 @@ namespace OccasionKit.EditorTools
             Check("Legacy icons", File.Exists(Path.Combine(res, "mipmap-xxxhdpi", "occasionkit_selftest_round.png")));
             Check("Background color resource", File.ReadAllText(Path.Combine(res, "values", "occasionkit_colors.xml")).Contains("occasionkit_selftest_bg"));
             Check("Keep rule added once", File.ReadAllText(Path.Combine(root, "proguard-unity.txt")).Split('\n').Count(l => l.Contains("com.occasionkit")) == 1);
+            Note("Output: " + root);
+        }
+
+        /// <summary>A foreground-switching backend (iOS): never on the way out, once after launch and after each return.</summary>
+        private static void ForegroundSwitching()
+        {
+            if (Application.isPlaying)
+            {
+                Note("Skipped in Play Mode (it would reset the running OccasionSystem).");
+                return;
+            }
+
+            var catalog = ScriptableObject.CreateInstance<OccasionCatalog>();
+            catalog.occasions.Add(Yearly("halloween", CalendarType.Gregorian, 10, 25, 11, 5, 10, "halloween"));
+            var backend = new FakeBackend { SwitchMoment = IconSwitchMoment.Foreground };
+            OccasionSystem.ResetStatics();
+            OccasionClock.Simulate(new DateTime(2026, 10, 31, 12, 0, 0));
+
+            try
+            {
+                OccasionSystem.InitializeAsync(new OccasionConfig { Catalogs = new[] { catalog }, IconBackend = backend });
+                Check("Nothing switched during initialization", backend.Applied.Count == 0, string.Join(",", backend.Applied));
+
+                OccasionSystem.Tick();
+                Check("Switches on the first tick after launch", backend.Applied.SequenceEqual(new[] { "halloween" }), string.Join(",", backend.Applied));
+
+                OccasionSystem.Tick();
+                Check("Only once", backend.Applied.Count == 1, string.Join(",", backend.Applied));
+
+                OccasionSystem.OnBackground();
+                Check("Nothing switched or scheduled on the way out", backend.Applied.Count == 1 && backend.LastSchedule.Count == 0, string.Join("|", backend.LastSchedule));
+
+                OccasionClock.Simulate(new DateTime(2026, 11, 10, 9, 0, 0));
+                OccasionSystem.OnForeground();
+                Check("Waits for the app to tick after returning", backend.Applied.Count == 1, string.Join(",", backend.Applied));
+
+                OccasionSystem.Tick();
+                Check("Back to the default icon after the occasion", backend.Applied.SequenceEqual(new[] { "halloween", "default" }), string.Join(",", backend.Applied));
+            }
+            finally
+            {
+                OccasionClock.ClearSimulation();
+                OccasionSystem.ResetStatics();
+                Object.DestroyImmediate(catalog);
+            }
+        }
+
+        private static void IOSBuildStep()
+        {
+            var root = Path.Combine(Path.GetTempPath(), "OccasionKitSelfTest", "xcode");
+
+            if (Directory.Exists(root))
+                Directory.Delete(root, true);
+
+            var catalog = Path.Combine(root, "Unity-iPhone", "Images.xcassets");
+            Directory.CreateDirectory(Path.Combine(catalog, "AppIcon.appiconset"));
+            Directory.CreateDirectory(Path.Combine(catalog, "occasionkit_old_event.appiconset"));
+
+            var icon = TestIcon(out var texture);
+            List<string> names;
+
+            try
+            {
+                // Run twice: Xcode projects can be built into again (Append).
+                IOSIconBuildStep.Process(root, new[] { icon });
+                names = IOSIconBuildStep.Process(root, new[] { icon });
+            }
+            finally
+            {
+                Object.DestroyImmediate(texture);
+            }
+
+            var set = Path.Combine(catalog, "occasionkit_selftest.appiconset");
+            var contents = File.Exists(Path.Combine(set, "Contents.json")) ? File.ReadAllText(Path.Combine(set, "Contents.json")) : "";
+            Check("Alternate icon names", names.SequenceEqual(new[] { "occasionkit_selftest" }), string.Join(",", names));
+            Check("Single-size icon set", contents.Contains("\"1024x1024\"") && contents.Contains("\"icon.png\"") && contents.Contains("\"universal\""));
+            Check("Earlier OccasionKit icon sets removed", !Directory.Exists(Path.Combine(catalog, "occasionkit_old_event.appiconset")));
+            Check("Primary icon set untouched", Directory.Exists(Path.Combine(catalog, "AppIcon.appiconset")));
+
+            var png = new Texture2D(2, 2) { hideFlags = HideFlags.HideAndDontSave };
+
+            try
+            {
+                // IHDR color type (byte 25): 2 is RGB, 6 is RGBA.
+                var bytes = File.ReadAllBytes(Path.Combine(set, "icon.png"));
+                Check("No alpha channel", bytes.Length > 25 && bytes[25] == 2, bytes.Length > 25 ? $"PNG color type {bytes[25]}" : "too short");
+
+                png.LoadImage(bytes);
+                Check("1024 px", png.width == 1024 && png.height == 1024, $"{png.width}×{png.height}");
+                Check("Foreground in the middle", Approximately(png.GetPixel(512, 512), Color.white));
+                Check("Background color in the corner", Approximately(png.GetPixel(4, 4), new Color(0.1f, 0.4f, 0.9f)), png.GetPixel(4, 4).ToString());
+            }
+            finally
+            {
+                Object.DestroyImmediate(png);
+            }
+
             Note("Output: " + root);
         }
 
