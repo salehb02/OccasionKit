@@ -37,10 +37,10 @@ In **Window > Package Manager**, choose **+ > Add package from git URL** and ent
 https://github.com/salehb02/OccasionKit.git
 ```
 
-Append a tag such as `#v1.0.0` to pin a version. Or add it to `Packages/manifest.json`:
+Append a tag such as `#v1.1.0` to pin a version. Or add it to `Packages/manifest.json`:
 
 ```json
-"com.occasionkit.core": "https://github.com/salehb02/OccasionKit.git#v1.0.0"
+"com.occasionkit.core": "https://github.com/salehb02/OccasionKit.git#v1.1.0"
 ```
 
 To work on the package itself, clone the repository into your project's `Packages` folder instead.
