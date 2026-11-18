@@ -31,13 +31,13 @@ So you can add an icon in one release and turn it on for an occasion later from 
 In **Window > Package Manager**, choose **+ > Add package from git URL** and enter:
 
 ```
-https://github.com/<owner>/OccasionKit.git
+https://github.com/salehb02/OccasionKit.git
 ```
 
 Append a tag such as `#v1.0.0` to pin a version. Or add it to `Packages/manifest.json`:
 
 ```json
-"com.occasionkit.core": "https://github.com/<owner>/OccasionKit.git#v1.0.0"
+"com.occasionkit.core": "https://github.com/salehb02/OccasionKit.git#v1.0.0"
 ```
 
 To work on the package itself, clone the repository into your project's `Packages` folder instead.
