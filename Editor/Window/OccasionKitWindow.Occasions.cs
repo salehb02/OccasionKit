@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using UnityEditor;
 using UnityEditorInternal;
@@ -17,6 +19,10 @@ namespace OccasionKit.EditorTools
         private readonly TimelineView _timeline = new TimelineView();
         private ReorderableList _occasionList;
 
+        // Timeline row -> catalog index, and the occasions in that order.
+        private readonly List<int> _timelineOrder = new List<int>();
+        private readonly List<Occasion> _timelineRows = new List<Occasion>();
+
         // Scroll the list and the timeline to the selection once it changes from somewhere else.
         [NonSerialized] private bool _revealInList;
         [NonSerialized] private bool _revealInTimeline;
@@ -29,6 +35,9 @@ namespace OccasionKit.EditorTools
                 DrawEmpty("No occasion catalog yet", "A catalog is an addressable list of occasions. The runtime loads every catalog with the OccasionKit label and merges them.", "Create catalog", CreateCatalog);
                 return;
             }
+
+            // Read once so every event of this pass lays out the same; opening or closing shows on the next pass.
+            var showSimulator = _simulatorOpen;
 
             HandleOccasionCommands();
             DrawTimelineSection();
@@ -59,6 +68,17 @@ namespace OccasionKit.EditorTools
                     OKStyles.EndForm();
                     GUILayout.Space(12);
                     EditorGUILayout.EndScrollView();
+                }
+
+                if (showSimulator)
+                {
+                    var simulatorSeparator = GUILayoutUtility.GetRect(1, 1, GUILayout.Width(1), GUILayout.ExpandHeight(true));
+
+                    if (Event.current.type == EventType.Repaint)
+                        EditorGUI.DrawRect(simulatorSeparator, OKStyles.GridLine);
+
+                    using (new EditorGUILayout.VerticalScope(GUILayout.Width(SimulatorWidth)))
+                        DrawSimulatorPane();
                 }
             }
         }
@@ -144,28 +164,71 @@ namespace OccasionKit.EditorTools
                 }
 
                 DrawCalendarPicker();
+                GUILayout.Space(6);
+
+                var open = GUILayout.Toggle(_simulatorOpen, new GUIContent("Simulator", "What's active, the launcher icon and Play Mode at a simulated time. Click or drag the timeline's bars to pick the day; click a name to edit it."), EditorStyles.toolbarButton, GUILayout.Width(70));
+
+                if (open != _simulatorOpen)
+                    _simulatorOpen = open;
+
                 GUILayout.FlexibleSpace();
                 DrawTimelineLegend();
             }
 
-            var occasions = _catalog.occasions;
-            DateTime? marker = ShowSimulatedMarker ? EditorBridge.SimulatedTime : (DateTime?)null;
-            var clicked = DrawTimeline(occasions, _year, _selected, marker, ref _timelineScroll, ref _revealInTimeline, false);
+            SortTimelineRows(_catalog.occasions);
+            DateTime? marker = ShowMarker ? EditorBridge.SimulatedTime : (DateTime?)null;
+            var selectedRow = _timelineOrder.IndexOf(_selected);
+            var clicked = DrawTimeline(_timelineRows, _year, selectedRow, marker, ref _timelineScroll, ref _revealInTimeline, true);
 
-            if (clicked >= 0)
+            // Changing the day opens the simulator pane on the right.
+            if (_timeline.Scrubbed.HasValue)
             {
-                SelectOccasion(clicked);
+                var time = EditorBridge.SimulatedTime;
+                var next = _timeline.Scrubbed.Value.Add(time.TimeOfDay);
+                _simulatorOpen = true;
+
+                if (next != time)
+                    SetSimulatedTime(next);
+
+                Repaint();
+            }
+
+            if (clicked >= 0 && clicked < _timelineOrder.Count)
+            {
+                SelectOccasion(_timelineOrder[clicked]);
                 _revealInTimeline = false;
                 GUI.FocusControl(null);
                 Repaint();
             }
         }
 
+        /// <summary>The catalog's occasions in timeline order: highest priority first, ties in catalog order.</summary>
+        private void SortTimelineRows(List<Occasion> occasions)
+        {
+            _timelineOrder.Clear();
+
+            for (var i = 0; i < occasions.Count; i++)
+                _timelineOrder.Add(i);
+
+            _timelineOrder.Sort((a, b) =>
+            {
+                var byPriority = Priority(occasions[b]).CompareTo(Priority(occasions[a]));
+                return byPriority != 0 ? byPriority : a.CompareTo(b);
+            });
+
+            _timelineRows.Clear();
+
+            foreach (var index in _timelineOrder)
+                _timelineRows.Add(occasions[index]);
+        }
+
+        private static int Priority(Occasion occasion) => occasion != null ? occasion.priority : int.MinValue;
+
         private void DrawTimelineLegend()
         {
             Legend(OKStyles.Today, "Today");
 
-            if (ShowSimulatedMarker || _tab == Tab.Simulator)
+            if (ShowMarker)
                 Legend(OKStyles.Simulated, "Simulator");
 
             Legend(new Color(0.5f, 0.7f, 1f, 0.35f), "Lead / tail");
@@ -175,7 +238,7 @@ namespace OccasionKit.EditorTools
         }
 
         /// <summary>The year timeline (<paramref name="year"/> is in the picked calendar), scrolling with a fixed month header when it's taller than about a third of the window.</summary>
-        private int DrawTimeline(System.Collections.Generic.IReadOnlyList<Occasion> occasions, int year, int selected, DateTime? marker, ref Vector2 scroll, ref bool reveal, bool scrub)
+        private int DrawTimeline(IReadOnlyList<Occasion> occasions, int year, int selected, DateTime? marker, ref Vector2 scroll, ref bool reveal, bool scrub)
         {
             var height = TimelineView.GetHeight(occasions.Count);
             var maxHeight = Mathf.Max(140f, position.height * 0.38f);
@@ -230,7 +293,8 @@ namespace OccasionKit.EditorTools
             EditorBridge.TimelineCalendar = next;
         }
 
-        private bool ShowSimulatedMarker { get => Math.Abs((EditorBridge.SimulatedTime - DateTime.Now).TotalMinutes) > 1; }
+        /// <summary>The simulated day on the timeline, only while the simulator is open.</summary>
+        private bool ShowMarker { get => _simulatorOpen; }
 
         private static void Legend(Color color, string label)
         {
@@ -365,7 +429,7 @@ namespace OccasionKit.EditorTools
             return $"{occasion.id} · in {DateFormat.Span(next.WindowStart - now)} · {DateFormat.Day(next.WindowStart)}";
         }
 
-        /// <summary>Opens the Simulator at the start of the occasion's current or next main window.</summary>
+        /// <summary>Opens the simulator pane at the start of the occasion's current or next main window.</summary>
         private void SimulateOccasion(Occasion occasion)
         {
             var now = DateTime.Now;
@@ -378,7 +442,7 @@ namespace OccasionKit.EditorTools
             }
 
             SetSimulatedTime(instance.MainStart);
-            _tab = Tab.Simulator;
+            _simulatorOpen = true;
             Repaint();
         }
 
@@ -475,7 +539,7 @@ namespace OccasionKit.EditorTools
 
                     using (new EditorGUILayout.HorizontalScope())
                     {
-                        if (GUILayout.Button(new GUIContent("Simulate", "Open the Simulator at the start of this occasion's current or next main window"), EditorStyles.miniButton, GUILayout.Width(64)))
+                        if (GUILayout.Button(new GUIContent("Simulate", "Open the simulator at the start of this occasion's current or next main window"), EditorStyles.miniButton, GUILayout.Width(64)))
                             SimulateOccasion(occasion);
 
                         GUILayout.Space(6);
@@ -529,6 +593,10 @@ namespace OccasionKit.EditorTools
                 {
                     EditorGUILayout.PropertyField(greeting.FindPropertyRelative(nameof(OccasionGreeting.title)));
                     EditorGUILayout.PropertyField(greeting.FindPropertyRelative(nameof(OccasionGreeting.message)));
+#if OCCASIONKIT_LOCALIZATION
+                    DrawLocalized(greeting.FindPropertyRelative(nameof(OccasionGreeting.localizedTitle)), greeting.FindPropertyRelative(nameof(OccasionGreeting.localizedMessage)), "message");
+#endif
+                    DrawTranslations(greeting.FindPropertyRelative(nameof(OccasionGreeting.translations)), occasion.greeting.translations, occasion, "message");
                     EditorGUILayout.PropertyField(greeting.FindPropertyRelative(nameof(OccasionGreeting.includeLeadAndTail)));
                 }
             }
@@ -692,7 +760,7 @@ namespace OccasionKit.EditorTools
                 EditorGUILayout.LabelField(" ", "Every language.", OKStyles.Muted);
         }
 
-        private static void DrawNotification(SerializedProperty notification, Occasion occasion)
+        private void DrawNotification(SerializedProperty notification, Occasion occasion)
         {
             var enabled = notification.FindPropertyRelative(nameof(OccasionNotification.enabled));
             EditorGUILayout.PropertyField(enabled, new GUIContent("Send a notification", "Local notification, scheduled each time the app goes to the background. Needs com.unity.mobile.notifications and OccasionNotifications.Enable()."));
@@ -701,6 +769,10 @@ namespace OccasionKit.EditorTools
             {
                 EditorGUILayout.PropertyField(notification.FindPropertyRelative(nameof(OccasionNotification.title)));
                 EditorGUILayout.PropertyField(notification.FindPropertyRelative(nameof(OccasionNotification.body)));
+#if OCCASIONKIT_LOCALIZATION
+                DrawLocalized(notification.FindPropertyRelative(nameof(OccasionNotification.localizedTitle)), notification.FindPropertyRelative(nameof(OccasionNotification.localizedBody)), "body");
+#endif
+                DrawTranslations(notification.FindPropertyRelative(nameof(OccasionNotification.translations)), occasion.notification.translations, occasion, "body");
                 EditorGUILayout.PropertyField(notification.FindPropertyRelative(nameof(OccasionNotification.anchor)), new GUIContent("Fires at"));
                 EditorGUILayout.PropertyField(notification.FindPropertyRelative(nameof(OccasionNotification.offsetMinutes)), new GUIContent("Offset (minutes)"));
             }
@@ -709,6 +781,149 @@ namespace OccasionKit.EditorTools
             if (enabled.boolValue)
                 EditorGUILayout.HelpBox("com.unity.mobile.notifications isn't installed, so this won't be sent.", MessageType.Info);
 #endif
+        }
+
+#if OCCASIONKIT_LOCALIZATION
+        /// <summary>Unity Localization strings. They come before the translations and the default text.</summary>
+        /// <param name="text">"message" or "body".</param>
+        private static void DrawLocalized(SerializedProperty title, SerializedProperty body, string text)
+        {
+            EditorGUILayout.PropertyField(title, new GUIContent("Localized title", "From a Unity Localization string table, in the selected locale. Empty: the title above."));
+            EditorGUILayout.PropertyField(body, new GUIContent("Localized " + text, $"From a Unity Localization string table, in the selected locale. Empty: the {text} above."));
+            EditorGUILayout.LabelField(" ", $"Set strings replace the title and {text} above in every locale.", OKStyles.MutedWrap);
+        }
+#endif
+
+        private static readonly Dictionary<string, string> LanguageNames = new Dictionary<string, string>();
+
+        /// <summary>
+        /// The title and text per language code. With Unity Localization installed the localized strings take over, so
+        /// the list only shows when it already has entries.
+        /// </summary>
+        /// <param name="text">"message" or "body".</param>
+        private void DrawTranslations(SerializedProperty translations, List<OccasionTranslation> list, Occasion occasion, string text)
+        {
+#if OCCASIONKIT_LOCALIZATION
+            if (translations.arraySize == 0)
+                return;
+#endif
+            var label = new GUIContent("Translations", $"The title and {text} per language, matched against OccasionConfig.Language (default: the device language). \"fa\" also covers \"fa-IR\". Empty fields use the default text.");
+
+            if (translations.arraySize > 0)
+                EditorGUILayout.LabelField(label, GUIContent.none);
+
+            for (var i = 0; i < translations.arraySize; i++)
+            {
+                var entry = translations.GetArrayElementAtIndex(i);
+
+                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                {
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        EditorGUILayout.PrefixLabel("Language");
+                        var code = entry.FindPropertyRelative(nameof(OccasionTranslation.language));
+                        var next = EditorGUILayout.DelayedTextField(code.stringValue, GUILayout.Width(70));
+
+                        if (next != code.stringValue)
+                        {
+                            next = LanguageCodes.Normalize(next);
+
+                            if (next != code.stringValue)
+                                code.stringValue = next;
+                        }
+
+                        GUILayout.Label(LanguageName(code.stringValue), OKStyles.Muted);
+                        GUILayout.FlexibleSpace();
+
+                        if (GUILayout.Button(new GUIContent(EditorGUIUtility.IconContent("Toolbar Minus").image, "Remove this translation"), EditorStyles.iconButton, GUILayout.Width(20)))
+                        {
+                            translations.DeleteArrayElementAtIndex(i);
+                            translations.serializedObject.ApplyModifiedProperties();
+                            GUIUtility.ExitGUI();
+                        }
+                    }
+
+                    EditorGUILayout.PropertyField(entry.FindPropertyRelative(nameof(OccasionTranslation.title)));
+                    EditorGUILayout.PropertyField(entry.FindPropertyRelative(nameof(OccasionTranslation.text)), new GUIContent(char.ToUpperInvariant(text[0]) + text.Substring(1)));
+                }
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.PrefixLabel(translations.arraySize == 0 ? label : new GUIContent(" "));
+                var add = new GUIContent("Add language");
+                var rect = GUILayoutUtility.GetRect(add, EditorStyles.popup, GUILayout.Width(110));
+
+                if (EditorGUI.DropdownButton(rect, add, FocusType.Passive))
+                    ShowAddTranslationMenu(rect, list, occasion);
+
+                if (translations.arraySize == 0)
+                    GUILayout.Label("None: every language gets the text above.", OKStyles.Muted);
+
+                GUILayout.FlexibleSpace();
+            }
+        }
+
+        /// <summary>Suggests the occasion's targeted languages and the ones other occasions in the catalog are translated to.</summary>
+        private void ShowAddTranslationMenu(Rect rect, List<OccasionTranslation> list, Occasion occasion)
+        {
+            var taken = new HashSet<string>(list.Where(t => t != null).Select(t => LanguageCodes.Normalize(t.language)));
+            var used = _catalog.occasions.Where(o => o != null)
+                .SelectMany(o => o.greeting.translations.Concat(o.notification.translations))
+                .Where(t => t != null)
+                .Select(t => t.language);
+
+            var suggestions = occasion.targeting.languages.Concat(used)
+                .Select(LanguageCodes.Normalize)
+                .Where(code => code.Length > 0 && !taken.Contains(code))
+                .Distinct()
+                .ToList();
+
+            if (suggestions.Count == 0)
+            {
+                AddTranslation(list, "");
+                return;
+            }
+
+            var menu = new GenericMenu();
+
+            foreach (var code in suggestions)
+                menu.AddItem(new GUIContent($"{code}   {LanguageName(code)}"), false, () => AddTranslation(list, code));
+
+            menu.AddSeparator("");
+            menu.AddItem(new GUIContent("Other (type the code)"), false, () => AddTranslation(list, ""));
+            menu.DropDown(rect);
+        }
+
+        private void AddTranslation(List<OccasionTranslation> list, string code)
+        {
+            ModifyCatalog("Add translation", () => list.Add(new OccasionTranslation { language = code }));
+            Repaint();
+        }
+
+        /// <summary>"Persian", "Persian (Iran)", or a hint when the code is empty or unknown.</summary>
+        private static string LanguageName(string code)
+        {
+            code = LanguageCodes.Normalize(code);
+
+            if (code.Length == 0)
+                return "Type an ISO code, such as fa";
+
+            if (!LanguageNames.TryGetValue(code, out var name))
+            {
+                try
+                {
+                    name = CultureInfo.GetCultureInfo(code).EnglishName;
+                }
+                catch (ArgumentException)
+                {
+                    name = "Unknown code";
+                }
+
+                LanguageNames[code] = name;
+            }
+
+            return name;
         }
 
         private void DrawIssues(Func<ValidationIssue, bool> filter)

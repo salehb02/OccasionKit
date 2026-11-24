@@ -37,10 +37,10 @@ In **Window > Package Manager**, choose **+ > Add package from git URL** and ent
 https://github.com/salehb02/OccasionKit.git
 ```
 
-Append a tag such as `#v1.1.0` to pin a version. Or add it to `Packages/manifest.json`:
+Append a tag such as `#v1.2.0` to pin a version. Or add it to `Packages/manifest.json`:
 
 ```json
-"com.occasionkit.core": "https://github.com/salehb02/OccasionKit.git#v1.1.0"
+"com.occasionkit.core": "https://github.com/salehb02/OccasionKit.git#v1.2.0"
 ```
 
 To work on the package itself, clone the repository into your project's `Packages` folder instead.
@@ -48,14 +48,14 @@ To work on the package itself, clone the repository into your project's `Package
 ## Set up
 
 1. **Window > OccasionKit**, then **Create settings**. The settings hold the icon set and store names. They're editor-only and never ship.
-2. **Occasions tab**: create a catalog and add occasions. The **+** menu has presets (Nowruz, Yalda, Ramadan, Halloween, …). The timeline at the top shows the year in the Gregorian, Persian or Hijri calendar.
+2. **Occasions tab**: create a catalog and add occasions. The **+** menu has presets (Nowruz, Yalda, Ramadan, Halloween, …). The timeline at the top shows the year in the Gregorian, Persian or Hijri calendar, highest priority first. Click a name on it to edit that occasion.
 3. **Validation tab** > **Make addressable**: put the catalog in a group, ideally a remote one. The runtime loads every catalog with the label `occasion-catalog`.
 4. **Icons tab**: add icons. Each icon needs:
    - a foreground layer of at least 432 px, with the art inside the center 66 dp circle;
    - a background layer or color.
 
    Then pick the icon on an occasion.
-5. **Simulator tab**: test any date, store and language. To pick a date, click or drag the timeline, or right-click an occasion > **Simulate**. It also shows the icon changes coming up and can drive Play Mode.
+5. **Simulator** (right side of the Occasions tab): test any date, store and language. Click or drag the timeline's bars to pick a date and the simulator opens, or right-click an occasion > **Simulate**, or press **Simulator** on the timeline toolbar. It also shows the icon changes coming up and can drive Play Mode.
 
 **Tools > OccasionKit > Run Self-Test** checks calendars, rules, icon timing, image processing and the Android and iOS build steps.
 
@@ -79,13 +79,19 @@ TimeSpan left = nowruz.GetCountdown(OccasionClock.Now);
 var theme = OccasionSystem.GetActiveTheme();         // highest-priority active occasion with a theme
 var handle = OccasionSystem.LoadThemeAsync<MyTheme>(theme.Occasion);   // Addressables.Release(handle) when done
 
-foreach (var g in OccasionSystem.GetPendingGreetings()) { Show(g); OccasionSystem.MarkGreetingShown(g); }
+foreach (var g in OccasionSystem.GetPendingGreetings())
+{
+    var (title, message) = OccasionSystem.GetGreetingText(g);   // in the player's language
+    Show(title, message);
+    OccasionSystem.MarkGreetingShown(g);
+}
 
 OccasionSystem.SeasonalIconsEnabled = false;         // player setting
 
 OccasionKit.Notifications.OccasionNotifications.Enable("Events"); // optional
 ```
 
+- **Localized greetings and notifications**: with Unity Localization (`com.unity.localization`) installed, pick a string table entry for the title and the message or body; they follow the selected locale. Without it, add translations per language code on the occasion; they follow `OccasionConfig.Language` (default: the device language), and `"fa"` also covers `"fa-IR"`. Empty fields fall back to the default title and text.
 - `OccasionSystem.GetNext(id)` returns an occasion's next occurrence, and `GetUpcoming(within)` lists everything starting soon.
 - `OccasionSystem.ReloadCatalogsAsync()` reloads the catalogs after an Addressables catalog update in a long session.
 - `OccasionConfig.Catalogs` passes catalogs directly, without Addressables (tests, or projects without remote content).

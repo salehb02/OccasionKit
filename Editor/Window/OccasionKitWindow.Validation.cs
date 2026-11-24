@@ -27,7 +27,8 @@ if (active != null)
 // Greetings, once per occurrence.
 foreach (var greeting in OccasionSystem.GetPendingGreetings())
 {
-    ShowPopup(greeting.Occasion.greeting.title, greeting.Occasion.greeting.message);
+    var (title, message) = OccasionSystem.GetGreetingText(greeting);   // in the player's language
+    ShowPopup(title, message);
     OccasionSystem.MarkGreetingShown(greeting);
 }
 

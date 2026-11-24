@@ -249,16 +249,80 @@ namespace OccasionKit.EditorTools
                 }
             }
 
-            if (occasion.greeting.enabled && string.IsNullOrWhiteSpace(occasion.greeting.title) && string.IsNullOrWhiteSpace(occasion.greeting.message))
-                Add(issues, IssueSeverity.Warning, catalog, index, $"{name} has a greeting with no title or message.");
+            var greeting = occasion.greeting;
 
-            if (occasion.notification.enabled)
+            if (greeting.enabled)
             {
-                if (string.IsNullOrWhiteSpace(occasion.notification.title) && string.IsNullOrWhiteSpace(occasion.notification.body))
-                    Add(issues, IssueSeverity.Warning, catalog, index, $"{name} has a notification with no title or body.");
+#if OCCASIONKIT_LOCALIZATION
+                var localized = !greeting.localizedTitle.IsEmpty || !greeting.localizedMessage.IsEmpty;
+#else
+                var localized = false;
+#endif
+                ValidateText(catalog, index, name, "greeting", "message", greeting.title, greeting.message, localized, greeting.translations, issues);
+            }
+
+            var notification = occasion.notification;
+
+            if (notification.enabled)
+            {
+#if OCCASIONKIT_LOCALIZATION
+                var localized = !notification.localizedTitle.IsEmpty || !notification.localizedBody.IsEmpty;
+#else
+                var localized = false;
+#endif
+                ValidateText(catalog, index, name, "notification", "body", notification.title, notification.body, localized, notification.translations, issues);
 #if !OCCASIONKIT_NOTIFICATIONS
                 Add(issues, IssueSeverity.Info, catalog, index, $"{name} has a notification, but com.unity.mobile.notifications isn't installed, so it won't be sent.");
 #endif
+            }
+        }
+
+        /// <summary>A greeting's or notification's default text and its translations.</summary>
+        /// <param name="what">"greeting" or "notification".</param>
+        /// <param name="textName">"message" or "body".</param>
+        /// <param name="localized">A Unity Localization string is set, so every locale has text.</param>
+        private static void ValidateText(OccasionCatalog catalog, int index, string name, string what, string textName, string title, string text, bool localized, List<OccasionTranslation> translations, List<ValidationIssue> issues)
+        {
+            var hasDefault = !string.IsNullOrWhiteSpace(title) || !string.IsNullOrWhiteSpace(text);
+            var hasTranslations = translations.Any(t => t != null && (!string.IsNullOrWhiteSpace(t.title) || !string.IsNullOrWhiteSpace(t.text)));
+
+            if (!hasDefault && !localized)
+            {
+                Add(issues, IssueSeverity.Warning, catalog, index, hasTranslations
+                    ? $"{name}'s {what} has no default title or {textName}, so languages without a translation get an empty one."
+                    : $"{name} has a {what} with no title or {textName}.");
+            }
+
+            var seen = new HashSet<string>();
+
+            foreach (var translation in translations)
+            {
+                if (translation == null)
+                    continue;
+
+                var code = LanguageCodes.Normalize(translation.language);
+
+                if (code.Length == 0)
+                {
+                    Add(issues, IssueSeverity.Warning, catalog, index, $"{name}: a {what} translation has no language code, so it's never used.");
+                    continue;
+                }
+
+                if (!seen.Add(code))
+                {
+                    Add(issues, IssueSeverity.Warning, catalog, index, $"{name}: the {what} has two \"{code}\" translations; only the first is used.");
+                    continue;
+                }
+
+                var noTitle = string.IsNullOrWhiteSpace(translation.title);
+                var noText = string.IsNullOrWhiteSpace(translation.text);
+
+                if (noTitle && noText)
+                    Add(issues, IssueSeverity.Warning, catalog, index, $"{name}: the \"{code}\" {what} translation is empty, so \"{code}\" players get the default text.");
+                else if (noTitle && !string.IsNullOrWhiteSpace(title))
+                    Add(issues, IssueSeverity.Warning, catalog, index, $"{name}: the \"{code}\" {what} translation has no title, so \"{code}\" players get the default one.");
+                else if (noText && !string.IsNullOrWhiteSpace(text))
+                    Add(issues, IssueSeverity.Warning, catalog, index, $"{name}: the \"{code}\" {what} translation has no {textName}, so \"{code}\" players get the default one.");
             }
         }
 

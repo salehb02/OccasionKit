@@ -7,16 +7,15 @@ using UnityEngine;
 
 namespace OccasionKit.EditorTools
 {
-    /// <summary>Window > OccasionKit: occasions and their timeline, the icon set, a simulator, validation and settings.</summary>
+    /// <summary>Window > OccasionKit: occasions with their timeline and simulator, the icon set, validation and settings.</summary>
     internal sealed partial class OccasionKitWindow : EditorWindow
     {
         private enum Tab
         {
             Occasions = 0,
             Icons = 1,
-            Simulator = 2,
-            Validation = 3,
-            Settings = 4,
+            Validation = 2,
+            Settings = 3,
         }
 
         [SerializeField] private Tab _tab;
@@ -64,6 +63,9 @@ namespace OccasionKit.EditorTools
         {
             wantsMouseMove = true;
 
+            if (_tab < Tab.Occasions || _tab > Tab.Settings)
+                _tab = Tab.Occasions;
+
             if (_year == 0)
                 _year = CalendarUtility.GetYear(_timelineCalendar, DateTime.Now);
 
@@ -108,8 +110,8 @@ namespace OccasionKit.EditorTools
 
         private void Update()
         {
-            // Countdowns and runtime state in the simulator.
-            if (_tab == Tab.Simulator && EditorApplication.isPlaying && EditorApplication.timeSinceStartup > _nextSimulatorRepaint)
+            // Countdowns and runtime state in the simulator pane.
+            if (_tab == Tab.Occasions && _simulatorOpen && EditorApplication.isPlaying && EditorApplication.timeSinceStartup > _nextSimulatorRepaint)
             {
                 _nextSimulatorRepaint = EditorApplication.timeSinceStartup + 0.5;
                 Repaint();
@@ -139,7 +141,6 @@ namespace OccasionKit.EditorTools
             {
                 case Tab.Occasions: DrawOccasionsTab(); break;
                 case Tab.Icons: DrawIconsTab(); break;
-                case Tab.Simulator: DrawSimulatorTab(); break;
                 case Tab.Validation: DrawValidationTab(); break;
                 case Tab.Settings: DrawSettingsTab(); break;
             }
@@ -163,12 +164,11 @@ namespace OccasionKit.EditorTools
                 {
                     new GUIContent("Occasions"),
                     new GUIContent("Icons"),
-                    new GUIContent("Simulator"),
                     new GUIContent(validation, _errorCount > 0 ? OKStyles.SeverityIcon(IssueSeverity.Error).image : _warningCount > 0 ? OKStyles.SeverityIcon(IssueSeverity.Warning).image : null),
                     new GUIContent("Settings"),
                 };
 
-                _tab = (Tab)GUILayout.Toolbar((int)_tab, labels, EditorStyles.toolbarButton, GUILayout.Width(480));
+                _tab = (Tab)GUILayout.Toolbar((int)_tab, labels, EditorStyles.toolbarButton, GUILayout.Width(384));
                 GUILayout.FlexibleSpace();
 
                 if (_tab == Tab.Occasions && Settings != null)

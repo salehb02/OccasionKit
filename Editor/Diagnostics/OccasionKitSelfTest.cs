@@ -28,6 +28,7 @@ namespace OccasionKit.EditorTools
             Safe("Schedules", Schedules);
             Safe("Rules", Rules);
             Safe("Parsing and languages", Parsing);
+            Safe("Translations", Translations);
             Safe("Runtime facade", RuntimeFacade);
             Safe("iOS icon timing", ForegroundSwitching);
             Safe("Images", Images);
@@ -134,6 +135,27 @@ namespace OccasionKit.EditorTools
             Note("Device language here: " + LanguageCodes.FromDevice());
         }
 
+        private static void Translations()
+        {
+            var greeting = new OccasionGreeting { title = "Happy Nowruz", message = "From all of us" };
+            greeting.translations.Add(new OccasionTranslation { language = "fa", title = "نوروز مبارک", text = "از طرف همه ما" });
+            greeting.translations.Add(new OccasionTranslation { language = "fa-AF", title = "نوروز تان مبارک" });
+
+            Check("Default text without a language", greeting.GetText(null) == ("Happy Nowruz", "From all of us"));
+            Check("Default text for an untranslated language", greeting.GetText("de") == ("Happy Nowruz", "From all of us"));
+            Check("Base language covers regions", greeting.GetText("fa-IR") == ("نوروز مبارک", "از طرف همه ما"));
+            Check("Region before base language", greeting.GetText("fa-AF").title == "نوروز تان مبارک");
+            Check("Empty translated field falls back to the default", greeting.GetText("fa-AF").message == "From all of us");
+            Check("Codes are normalized", greeting.GetText("FA_ir").title == "نوروز مبارک");
+
+            var notification = new OccasionNotification { title = "Nowruz", body = "Tap to celebrate" };
+            notification.translations.Add(new OccasionTranslation { language = "fa", title = "نوروز" });
+            Check("Notification text", notification.GetText("fa") == ("نوروز", "Tap to celebrate"));
+#if OCCASIONKIT_LOCALIZATION
+            Note("Unity Localization is installed: set localized strings come before these translations.");
+#endif
+        }
+
         private sealed class FakeBackend : IAppIconBackend, IAppIconSwitchMoment
         {
             public readonly List<string> Applied = new List<string>();
@@ -168,6 +190,7 @@ namespace OccasionKit.EditorTools
             var halloween = Yearly("halloween", CalendarType.Gregorian, 10, 25, 11, 5, 10, "halloween");
             halloween.greeting.enabled = true;
             halloween.greeting.title = "Boo";
+            halloween.greeting.translations.Add(new OccasionTranslation { language = "fa", title = "Boo!" });
             var cup = Yearly("cup", CalendarType.Gregorian, 10, 30, 11, 2, 20, "cup");
             cup.targeting.stores.Add("GooglePlay");
             var mourning = Yearly("mourning", CalendarType.Gregorian, 11, 1, 11, 1, 100, "");
@@ -202,6 +225,7 @@ namespace OccasionKit.EditorTools
                 Check("Pending greeting", greetings.Count == 1 && greetings[0].Key == "halloween@20261025", string.Join(",", greetings.Select(g => g.Key)));
                 OccasionSystem.MarkGreetingShown(greetings[0]);
                 Check("Greeting shown once", OccasionSystem.GetPendingGreetings().Count == 0);
+                Check("Greeting text in the context's language", OccasionSystem.GetGreetingText(greetings[0]) == ("Boo!", "") && OccasionSystem.GetGreetingText(greetings[0], "en").title == "Boo");
 
                 OccasionClock.Simulate(new DateTime(2026, 11, 1, 9, 0, 0));
                 OccasionSystem.Tick();

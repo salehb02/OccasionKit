@@ -8,86 +8,46 @@ using OccasionKit.Notifications;
 
 namespace OccasionKit.EditorTools
 {
+    /// <summary>The simulator pane on the right of the Occasions tab. It opens when the timeline's day is changed.</summary>
     internal sealed partial class OccasionKitWindow
     {
         private const int AnyStore = 0;
         private const int NoStore = 1;
 
+        [SerializeField] private bool _simulatorOpen;
         [SerializeField] private Vector2 _simulatorScroll;
-        [SerializeField] private Vector2 _simulatorTimelineScroll;
         [SerializeField] private int _simulatorStore;
         [SerializeField] private string _simulatorLanguage = "";
 
-        private void DrawSimulatorTab()
-        {
-            var occasions = CatalogDatabase.GetMergedOccasions();
-            DrawSimulatorTimeline(occasions);
+        private float SimulatorWidth { get => Mathf.Clamp(position.width * 0.34f, 300f, 440f); }
 
+        private void DrawSimulatorPane()
+        {
+            using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
+            {
+                GUILayout.Label("Simulator", EditorStyles.miniBoldLabel);
+                GUILayout.FlexibleSpace();
+
+                if (GUILayout.Button(new GUIContent("Close", "Hide the simulator. The simulated time stays, for Play Mode; Now resets it."), EditorStyles.toolbarButton, GUILayout.Width(46)))
+                    _simulatorOpen = false;
+            }
+
+            var occasions = CatalogDatabase.GetMergedOccasions();
             var time = EditorBridge.SimulatedTime;
             var context = GetSimulatorContext();
             var iconIds = EditorBridge.GetIconIds();
             Func<string, bool> isAvailable = id => iconIds.Contains(id);
 
-            _simulatorScroll = EditorGUILayout.BeginScrollView(_simulatorScroll);
-            OKStyles.BeginForm();
+            // No horizontal scrollbar: the rows below wrap or clip to the pane's width.
+            _simulatorScroll = EditorGUILayout.BeginScrollView(_simulatorScroll, false, false, GUIStyle.none, GUI.skin.verticalScrollbar, GUIStyle.none);
             var labelWidth = EditorGUIUtility.labelWidth;
-            EditorGUIUtility.labelWidth = 110;
+            EditorGUIUtility.labelWidth = 70;
 
             GUILayout.Space(4);
-            GUILayout.Label($"Every catalog merged ({occasions.Count} occasions), evaluated the way the runtime does.", OKStyles.Subtitle);
+            GUILayout.Label($"Every catalog merged ({occasions.Count} occasions), evaluated the way the runtime does.", OKStyles.MutedWrap);
 
             if (OKStyles.Section("sim.time", "Time and context"))
-            {
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    EditorGUILayout.PrefixLabel("Time");
-                    var text = new LocalDateTime(time).ToString();
-                    var next = EditorGUILayout.DelayedTextField(text, GUILayout.Width(130));
-
-                    if (next != text && LocalDateTime.TryParse(next, out var parsed) && parsed.TryToDateTime(out var parsedTime))
-                        SetSimulatedTime(parsedTime);
-
-                    if (GUILayout.Button("Now", EditorStyles.miniButtonLeft, GUILayout.Width(42)))
-                        SetSimulatedTime(DateTime.Now);
-
-                    if (GUILayout.Button("−1d", EditorStyles.miniButtonMid, GUILayout.Width(36)))
-                        SetSimulatedTime(time.AddDays(-1));
-
-                    if (GUILayout.Button("+1d", EditorStyles.miniButtonMid, GUILayout.Width(36)))
-                        SetSimulatedTime(time.AddDays(1));
-
-                    if (GUILayout.Button("−1h", EditorStyles.miniButtonMid, GUILayout.Width(36)))
-                        SetSimulatedTime(time.AddHours(-1));
-
-                    if (GUILayout.Button("+1h", EditorStyles.miniButtonRight, GUILayout.Width(36)))
-                        SetSimulatedTime(time.AddHours(1));
-
-                    var jump = GUILayoutUtility.GetRect(new GUIContent("Jump to"), EditorStyles.popup, GUILayout.Width(90));
-
-                    if (EditorGUI.DropdownButton(jump, new GUIContent("Jump to"), FocusType.Passive))
-                        ShowJumpMenu(jump, occasions, time);
-
-                    GUILayout.FlexibleSpace();
-                }
-
-                EditorGUILayout.LabelField(" ", $"{time:dddd} · {CalendarUtility.FormatDate(CalendarType.Persian, time)} · {CalendarUtility.FormatDate(CalendarType.Hijri, time)} (arithmetic)", OKStyles.Muted);
-
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    EditorGUILayout.PrefixLabel("Store");
-                    var stores = new[] { "Any (ignore targeting)", "No store" }.Concat(Settings.stores).ToArray();
-                    _simulatorStore = EditorGUILayout.Popup(Mathf.Clamp(_simulatorStore, 0, stores.Length - 1), stores, GUILayout.Width(180));
-
-                    using (new EditorGUI.DisabledScope(_simulatorStore == AnyStore))
-                    {
-                        GUILayout.Label(new GUIContent("Language", "ISO code such as fa or en. Empty: this computer's language."), GUILayout.Width(62));
-                        _simulatorLanguage = EditorGUILayout.DelayedTextField(_simulatorLanguage, GUILayout.Width(50)).Trim();
-                        GUILayout.Label(string.IsNullOrEmpty(_simulatorLanguage) ? $"({LanguageCodes.FromDevice()})" : "", OKStyles.Muted);
-                    }
-
-                    GUILayout.FlexibleSpace();
-                }
-            }
+                DrawSimulatorTime(occasions, time);
 
             var result = OccasionEvaluator.Evaluate(occasions, time, context, isAvailable);
 
@@ -118,11 +78,8 @@ namespace OccasionKit.EditorTools
 
                 foreach (var notification in planned)
                 {
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        GUILayout.Label(DateFormat.Short(notification.FireTime), GUILayout.Width(160));
-                        GUILayout.Label($"<b>{notification.Title}</b>  {notification.Body}", new GUIStyle(EditorStyles.label) { richText = true });
-                    }
+                    GUILayout.Label(DateFormat.Short(notification.FireTime), EditorStyles.miniBoldLabel);
+                    GUILayout.Label($"<b>{notification.Title}</b>  {notification.Body}", new GUIStyle(EditorStyles.wordWrappedLabel) { richText = true });
                 }
             }
 #endif
@@ -131,78 +88,75 @@ namespace OccasionKit.EditorTools
                 DrawPlayModeSection();
 
             EditorGUIUtility.labelWidth = labelWidth;
-            OKStyles.EndForm();
             GUILayout.Space(12);
             EditorGUILayout.EndScrollView();
         }
 
-        /// <summary>The merged occasions on a year timeline. Click or drag across it to move the simulated day; click a name to edit it.</summary>
-        private void DrawSimulatorTimeline(System.Collections.Generic.List<Occasion> occasions)
+        private void DrawSimulatorTime(System.Collections.Generic.List<Occasion> occasions, DateTime time)
         {
-            var time = EditorBridge.SimulatedTime;
-            var year = CalendarUtility.GetYear(_timelineCalendar, time);
-
-            using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
+            using (new EditorGUILayout.HorizontalScope())
             {
-                if (GUILayout.Button(new GUIContent(EditorGUIUtility.IconContent("d_Animation.PrevKey").image, "A year earlier"), EditorStyles.toolbarButton, GUILayout.Width(26)))
-                    SetSimulatedTime(AddYears(time, -1));
+                EditorGUILayout.PrefixLabel("Time");
+                var text = new LocalDateTime(time).ToString();
+                var next = EditorGUILayout.DelayedTextField(text, GUILayout.MinWidth(110));
 
-                GUILayout.Label(year.ToString(), EditorStyles.toolbarButton, GUILayout.Width(44));
+                if (next != text && LocalDateTime.TryParse(next, out var parsed) && parsed.TryToDateTime(out var parsedTime))
+                    SetSimulatedTime(parsedTime);
 
-                if (GUILayout.Button(new GUIContent(EditorGUIUtility.IconContent("d_Animation.NextKey").image, "A year later"), EditorStyles.toolbarButton, GUILayout.Width(26)))
-                    SetSimulatedTime(AddYears(time, 1));
+                var jump = GUILayoutUtility.GetRect(new GUIContent("Jump to"), EditorStyles.popup, GUILayout.Width(76));
 
-                DrawCalendarPicker();
-                GUILayout.Space(6);
-                GUILayout.Label("Click or drag the timeline to set the day", OKStyles.Muted);
+                if (EditorGUI.DropdownButton(jump, new GUIContent("Jump to"), FocusType.Passive))
+                    ShowJumpMenu(jump, occasions, time);
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.Space(EditorGUIUtility.labelWidth + 2);
+
+                if (GUILayout.Button("Now", EditorStyles.miniButtonLeft, GUILayout.Width(42)))
+                    SetSimulatedTime(DateTime.Now);
+
+                if (GUILayout.Button("−1d", EditorStyles.miniButtonMid, GUILayout.Width(36)))
+                    SetSimulatedTime(time.AddDays(-1));
+
+                if (GUILayout.Button("+1d", EditorStyles.miniButtonMid, GUILayout.Width(36)))
+                    SetSimulatedTime(time.AddDays(1));
+
+                if (GUILayout.Button("−1h", EditorStyles.miniButtonMid, GUILayout.Width(36)))
+                    SetSimulatedTime(time.AddHours(-1));
+
+                if (GUILayout.Button("+1h", EditorStyles.miniButtonRight, GUILayout.Width(36)))
+                    SetSimulatedTime(time.AddHours(1));
+
                 GUILayout.FlexibleSpace();
-                DrawTimelineLegend();
             }
 
-            var reveal = false;
-            var clicked = DrawTimeline(occasions, year, -1, time, ref _simulatorTimelineScroll, ref reveal, true);
+            Indented($"{time:dddd} · {CalendarUtility.FormatDate(CalendarType.Persian, time)} · {CalendarUtility.FormatDate(CalendarType.Hijri, time)} (arithmetic)");
 
-            if (_timeline.Scrubbed.HasValue)
+            using (new EditorGUILayout.HorizontalScope())
             {
-                var next = _timeline.Scrubbed.Value.Add(time.TimeOfDay);
-
-                if (next != time)
-                {
-                    SetSimulatedTime(next);
-                    Repaint();
-                }
+                EditorGUILayout.PrefixLabel("Store");
+                var stores = new[] { "Any (ignore targeting)", "No store" }.Concat(Settings.stores).ToArray();
+                _simulatorStore = EditorGUILayout.Popup(Mathf.Clamp(_simulatorStore, 0, stores.Length - 1), stores, GUILayout.MinWidth(110));
             }
 
-            if (clicked >= 0 && clicked < occasions.Count)
-                EditOccasion(occasions[clicked]);
-        }
-
-        /// <summary>The same day a year away in the picked calendar (1 Farvardin stays 1 Farvardin).</summary>
-        private DateTime AddYears(DateTime time, int years)
-        {
-            try
+            using (new EditorGUI.DisabledScope(_simulatorStore == AnyStore))
+            using (new EditorGUILayout.HorizontalScope())
             {
-                return CalendarUtility.Get(_timelineCalendar).AddYears(time, years);
-            }
-            catch (ArgumentException)
-            {
-                return time;
+                EditorGUILayout.PrefixLabel(new GUIContent("Language", "ISO code such as fa or en. Empty: this computer's language."));
+                _simulatorLanguage = EditorGUILayout.DelayedTextField(_simulatorLanguage, GUILayout.Width(50)).Trim();
+                GUILayout.Label(string.IsNullOrEmpty(_simulatorLanguage) ? $"({LanguageCodes.FromDevice()})" : "", OKStyles.Muted);
+                GUILayout.FlexibleSpace();
             }
         }
 
-        private void EditOccasion(Occasion occasion)
+        /// <summary>A wrapped, muted line lined up with the fields.</summary>
+        private static void Indented(string text)
         {
-            foreach (var (catalog, index, candidate) in CatalogDatabase.Enumerate())
+            using (new EditorGUILayout.HorizontalScope())
             {
-                if (candidate != occasion)
-                    continue;
-
-                _tab = Tab.Occasions;
-                SelectCatalog(catalog);
-                SelectOccasion(index);
-                GUI.FocusControl(null);
-                Repaint();
-                return;
+                GUILayout.Space(EditorGUIUtility.labelWidth + 2);
+                GUILayout.Label(text, OKStyles.MutedWrap);
             }
         }
 
@@ -217,13 +171,17 @@ namespace OccasionKit.EditorTools
             return new OccasionContext(store, language);
         }
 
+        /// <summary>Moves the simulated time (to the minute) and the timeline to its year.</summary>
         private void SetSimulatedTime(DateTime time)
         {
             EditorBridge.SimulatedTime = new DateTime(time.Year, time.Month, time.Day, time.Hour, time.Minute, 0);
+            _year = CalendarUtility.GetYear(_timelineCalendar, time);
             GUI.FocusControl(null);
 
             if (EditorApplication.isPlaying && EditorBridge.DrivePlayModeClock)
                 EditorBridge.ApplyClockToPlayMode();
+
+            Repaint();
         }
 
         private void ShowJumpMenu(Rect rect, System.Collections.Generic.List<Occasion> occasions, DateTime time)
@@ -278,7 +236,7 @@ namespace OccasionKit.EditorTools
                 {
                     GUILayout.Space(10);
                     GUILayout.Label(result.IconId == null ? "Launcher icon: default" : $"Launcher icon: {result.IconId}", EditorStyles.boldLabel);
-                    GUILayout.Label(result.IconSource != null ? $"from {result.IconSource.Occasion.Title} (priority {result.IconSource.Occasion.priority})" : "No active occasion has an icon; Player Settings icon.", OKStyles.Muted);
+                    GUILayout.Label(result.IconSource != null ? $"from {result.IconSource.Occasion.Title} (priority {result.IconSource.Occasion.priority})" : "No active occasion has an icon; Player Settings icon.", OKStyles.MutedWrap);
                 }
             }
 
@@ -313,14 +271,24 @@ namespace OccasionKit.EditorTools
             }
         }
 
+        /// <summary>The name, with the detail wrapped under it to fit the pane.</summary>
         private static void DrawOccasionRow(Occasion occasion, string detail, bool active)
         {
             using (new EditorGUILayout.HorizontalScope())
             {
                 GUILayout.Space(4);
-                OKStyles.ColorChip(GUILayoutUtility.GetRect(8, 8, GUILayout.Width(8), GUILayout.Height(16)), active ? occasion.color : OKStyles.Disabled);
-                GUILayout.Label(occasion.Title, active ? EditorStyles.boldLabel : EditorStyles.label, GUILayout.Width(170));
-                GUILayout.Label(detail, OKStyles.Muted);
+
+                using (new EditorGUILayout.VerticalScope(GUILayout.Width(8)))
+                {
+                    GUILayout.Space(5);
+                    OKStyles.ColorChip(GUILayoutUtility.GetRect(8, 8, GUILayout.Width(8), GUILayout.Height(8)), active ? occasion.color : OKStyles.Disabled);
+                }
+
+                using (new EditorGUILayout.VerticalScope())
+                {
+                    GUILayout.Label(occasion.Title, active ? EditorStyles.boldLabel : EditorStyles.label);
+                    GUILayout.Label(detail, OKStyles.MutedWrap);
+                }
             }
         }
 
@@ -336,8 +304,8 @@ namespace OccasionKit.EditorTools
                 if (preview != null)
                     GUI.DrawTexture(rect, preview, ScaleMode.ScaleToFit);
 
-                GUILayout.Label(iconId, EditorStyles.boldLabel, GUILayout.Width(150));
-                GUILayout.Label(detail, OKStyles.Muted);
+                GUILayout.Label(iconId, EditorStyles.boldLabel, GUILayout.Width(100));
+                GUILayout.Label(detail, OKStyles.MutedWrap);
             }
         }
 
@@ -371,6 +339,8 @@ namespace OccasionKit.EditorTools
             }
 
             var backend = OccasionSystem.IconBackend;
+            var labelWidth = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = 110;
 
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
@@ -393,6 +363,9 @@ namespace OccasionKit.EditorTools
                 EditorGUILayout.LabelField("Scheduled", scheduled.Count == 0 ? "- (filled when the app goes to the background)" : string.Join("   ", scheduled.Select(c => c.ToString())), EditorStyles.wordWrappedLabel);
             }
 
+            EditorGUIUtility.labelWidth = labelWidth;
+
+            // Two rows so the buttons fit the pane.
             using (new EditorGUILayout.HorizontalScope())
             {
                 if (GUILayout.Button("Refresh"))
@@ -403,7 +376,10 @@ namespace OccasionKit.EditorTools
 
                 if (GUILayout.Button("Back to foreground"))
                     OccasionSystem.OnForeground();
+            }
 
+            using (new EditorGUILayout.HorizontalScope())
+            {
                 if (GUILayout.Button("Reset greetings"))
                     OccasionSystem.ResetGreetings();
 

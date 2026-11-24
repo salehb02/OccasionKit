@@ -6,7 +6,8 @@
         "OccasionKit.Notifications",
         "Unity.Addressables",
         "Unity.Addressables.Editor",
-        "Unity.ResourceManager"
+        "Unity.ResourceManager",
+        "Unity.Localization"
     ],
     "includePlatforms": [
         "Editor"
@@ -22,6 +23,11 @@
             "name": "com.unity.mobile.notifications",
             "expression": "2.0.0",
             "define": "OCCASIONKIT_NOTIFICATIONS"
+        },
+        {
+            "name": "com.unity.localization",
+            "expression": "1.0.0",
+            "define": "OCCASIONKIT_LOCALIZATION"
         }
     ],
     "noEngineReferences": false

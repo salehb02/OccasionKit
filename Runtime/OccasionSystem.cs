@@ -225,6 +225,17 @@ namespace OccasionKit
             return results;
         }
 
+        /// <summary>
+        /// A greeting's title and message for this player: the Unity Localization strings in the selected locale when
+        /// that package is installed, otherwise the translation for <see cref="OccasionConfig.Language"/> (default: the
+        /// device language), otherwise the default text. Pass <paramref name="language"/> to override the language.
+        /// </summary>
+        public static (string title, string message) GetGreetingText(OccasionInstance instance, string language = null)
+        {
+            var greeting = instance?.Occasion?.greeting;
+            return greeting != null ? greeting.GetText(language ?? Context?.Language) : (null, null);
+        }
+
         public static void MarkGreetingShown(OccasionInstance instance)
         {
             if (instance == null)

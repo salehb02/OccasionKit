@@ -46,7 +46,7 @@ namespace OccasionKit.Notifications
         private static bool _channelRegistered;
 #endif
 
-        /// <param name="text">Optional: localized title and body per occurrence. Default: the occasion's own fields.</param>
+        /// <param name="text">Optional: your own title and body per occurrence. Default: <see cref="OccasionNotification.GetText"/> in the player's language.</param>
         /// <param name="channelId">Android notification channel; on iOS it groups the notifications (thread identifier).</param>
         public static void Enable(string channelName = "Events", string channelDescription = "Seasonal events", int days = 30, Func<OccasionInstance, (string title, string body)> text = null, string channelId = "occasionkit")
         {
@@ -105,7 +105,7 @@ namespace OccasionKit.Notifications
                     if (settings.anchor != NotificationAnchor.Countdown && !active.Any(a => a.Occasion == occasion))
                         continue;
 
-                    var (title, body) = text != null ? text(instance) : (settings.title, settings.body);
+                    var (title, body) = text != null ? text(instance) : settings.GetText(context?.Language);
 
                     if (string.IsNullOrEmpty(title) && string.IsNullOrEmpty(body))
                         continue;

@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+#if OCCASIONKIT_LOCALIZATION
+using UnityEngine.Localization;
+#endif
 
 namespace OccasionKit
 {
@@ -96,11 +99,38 @@ namespace OccasionKit
     public class OccasionGreeting
     {
         public bool enabled;
+        [Tooltip("Default title, for languages without a translation.")]
         public string title = "";
+        [Tooltip("Default message, for languages without a translation.")]
         [TextArea(2, 6)]
         public string message = "";
+#if OCCASIONKIT_LOCALIZATION
+        [Tooltip("From a Unity Localization string table, in the selected locale. Empty: the translations, then the default title.")]
+        public LocalizedString localizedTitle = new LocalizedString();
+        [Tooltip("From a Unity Localization string table, in the selected locale. Empty: the translations, then the default message.")]
+        public LocalizedString localizedMessage = new LocalizedString();
+#endif
+        [Tooltip("Title and message per language. Empty fields fall back to the defaults.")]
+        public List<OccasionTranslation> translations = new List<OccasionTranslation>();
         [Tooltip("Also show it during lead and tail days. Off: only during the main window.")]
         public bool includeLeadAndTail;
+
+        /// <summary>
+        /// Title and message for a player: each comes from the Unity Localization string in the selected locale when
+        /// that package is installed and the string is set, otherwise from the translation for
+        /// <paramref name="language"/>, otherwise from the default text.
+        /// </summary>
+        public (string title, string message) GetText(string language)
+        {
+            var translation = OccasionTranslation.Find(translations, language);
+#if OCCASIONKIT_LOCALIZATION
+            var localTitle = OccasionTranslation.Localize(localizedTitle);
+            var localMessage = OccasionTranslation.Localize(localizedMessage);
+#else
+            string localTitle = null, localMessage = null;
+#endif
+            return (OccasionTranslation.Pick(localTitle, translation?.title, title), OccasionTranslation.Pick(localMessage, translation?.text, message));
+        }
     }
 
     public enum NotificationAnchor
@@ -114,11 +144,34 @@ namespace OccasionKit
     public class OccasionNotification
     {
         public bool enabled;
+        [Tooltip("Default title, for languages without a translation.")]
         public string title = "";
+        [Tooltip("Default body, for languages without a translation.")]
         [TextArea(2, 6)]
         public string body = "";
+#if OCCASIONKIT_LOCALIZATION
+        [Tooltip("From a Unity Localization string table, in the locale selected when the app goes to the background. Empty: the translations, then the default title.")]
+        public LocalizedString localizedTitle = new LocalizedString();
+        [Tooltip("From a Unity Localization string table, in the locale selected when the app goes to the background. Empty: the translations, then the default body.")]
+        public LocalizedString localizedBody = new LocalizedString();
+#endif
+        [Tooltip("Title and body per language. Empty fields fall back to the defaults.")]
+        public List<OccasionTranslation> translations = new List<OccasionTranslation>();
         public NotificationAnchor anchor = NotificationAnchor.MainStart;
         [Tooltip("Minutes after the anchor. Negative fires before it.")]
         public int offsetMinutes;
+
+        /// <summary>Title and body, resolved like <see cref="OccasionGreeting.GetText"/>.</summary>
+        public (string title, string body) GetText(string language)
+        {
+            var translation = OccasionTranslation.Find(translations, language);
+#if OCCASIONKIT_LOCALIZATION
+            var localTitle = OccasionTranslation.Localize(localizedTitle);
+            var localBody = OccasionTranslation.Localize(localizedBody);
+#else
+            string localTitle = null, localBody = null;
+#endif
+            return (OccasionTranslation.Pick(localTitle, translation?.title, title), OccasionTranslation.Pick(localBody, translation?.text, body));
+        }
     }
 }

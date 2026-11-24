@@ -207,46 +207,44 @@ namespace OccasionKit.EditorTools
             if (occasion == null)
                 return;
 
+            // Only the current or next window.
             var now = DateTime.Now;
-            var upcoming = ScheduleResolver.GetInstances(occasion, now, now.AddYears(3)).Take(3).ToList();
+            var instance = ScheduleResolver.GetInstances(occasion, now, now.AddYears(3)).FirstOrDefault();
 
             GUILayout.Space(4);
 
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
-                if (upcoming.Count == 0)
+                if (instance == null)
                 {
                     EditorGUILayout.LabelField("No upcoming dates.", EditorStyles.boldLabel);
                     return;
                 }
 
-                foreach (var instance in upcoming)
-                {
-                    var live = instance.Contains(now);
+                var live = instance.Contains(now);
 
-                    // One fixed-height row so the bold "when" and the plain range share a baseline.
-                    var row = GUILayoutUtility.GetRect(1, 16, GUILayout.ExpandWidth(true));
-                    var previous = GUI.contentColor;
+                // One fixed-height row so the bold "when" and the plain range share a baseline.
+                var row = GUILayoutUtility.GetRect(1, 16, GUILayout.ExpandWidth(true));
+                var previous = GUI.contentColor;
 
-                    if (live)
-                        GUI.contentColor = OKStyles.Active;
+                if (live)
+                    GUI.contentColor = OKStyles.Active;
 
-                    // The range starts at the same x as the Detail() lines below it.
-                    GUI.Label(new Rect(row.x, row.y, 76, row.height), live ? "● Now" : "In " + DateFormat.Span(instance.WindowStart - now), EditorStyles.miniBoldLabel);
-                    GUI.contentColor = previous;
-                    GUI.Label(new Rect(row.x + 76, row.y, row.width - 76, row.height), DateFormat.Range(instance.MainStart, instance.MainEnd), EditorStyles.miniLabel);
+                // The range starts at the same x as the Detail() lines below it.
+                GUI.Label(new Rect(row.x, row.y, 76, row.height), live ? "● Now" : "In " + DateFormat.Span(instance.WindowStart - now), EditorStyles.miniBoldLabel);
+                GUI.contentColor = previous;
+                GUI.Label(new Rect(row.x + 76, row.y, row.width - 76, row.height), DateFormat.Range(instance.MainStart, instance.MainEnd), EditorStyles.miniLabel);
 
-                    var schedule = occasion.schedule;
+                var schedule = occasion.schedule;
 
-                    if (schedule.mode == ScheduleMode.Yearly && schedule.calendar != CalendarType.Gregorian)
-                        Detail(DateFormat.CalendarRange(schedule.calendar, instance.MainStart, instance.MainEnd));
+                if (schedule.mode == ScheduleMode.Yearly && schedule.calendar != CalendarType.Gregorian)
+                    Detail(DateFormat.CalendarRange(schedule.calendar, instance.MainStart, instance.MainEnd));
 
-                    if (instance.WindowStart != instance.MainStart || instance.WindowEnd != instance.MainEnd)
-                        Detail("Window " + DateFormat.Range(instance.WindowStart, instance.WindowEnd));
+                if (instance.WindowStart != instance.MainStart || instance.WindowEnd != instance.MainEnd)
+                    Detail("Window " + DateFormat.Range(instance.WindowStart, instance.WindowEnd));
 
-                    if (schedule.countdown == CountdownTarget.MarchEquinox)
-                        Detail("Equinox " + DateFormat.Short(instance.CountdownTarget));
-                }
+                if (schedule.countdown == CountdownTarget.MarchEquinox)
+                    Detail("Equinox " + DateFormat.Short(instance.CountdownTarget));
             }
         }
 
