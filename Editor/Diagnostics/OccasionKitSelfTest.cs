@@ -17,7 +17,7 @@ namespace OccasionKit.EditorTools
         private static int _passed;
         private static int _failed;
 
-        [MenuItem("Tools/OccasionKit/Run Self-Test", priority = 2000)]
+        [MenuItem("Tools/DevDude/OccasionKit/Run Self-Test", priority = 2011)]
         public static void Run()
         {
             Report.Clear();

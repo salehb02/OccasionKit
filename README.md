@@ -37,17 +37,17 @@ In **Window > Package Manager**, choose **+ > Add package from git URL** and ent
 https://github.com/salehb02/OccasionKit.git
 ```
 
-Append a tag such as `#v1.2.0` to pin a version. Or add it to `Packages/manifest.json`:
+Append a tag such as `#v1.2.1` to pin a version. Or add it to `Packages/manifest.json`:
 
 ```json
-"com.occasionkit.core": "https://github.com/salehb02/OccasionKit.git#v1.2.0"
+"com.occasionkit.core": "https://github.com/salehb02/OccasionKit.git#v1.2.1"
 ```
 
 To work on the package itself, clone the repository into your project's `Packages` folder instead.
 
 ## Set up
 
-1. **Window > OccasionKit**, then **Create settings**. The settings hold the icon set and store names. They're editor-only and never ship.
+1. **Tools > DevDude > OccasionKit > Open Window**, then **Create settings**. The settings hold the icon set and store names. They're editor-only and never ship.
 2. **Occasions tab**: create a catalog and add occasions. The **+** menu has presets (Nowruz, Yalda, Ramadan, Halloween, …). The timeline at the top shows the year in the Gregorian, Persian or Hijri calendar, highest priority first. Click a name on it to edit that occasion.
 3. **Validation tab** > **Make addressable**: put the catalog in a group, ideally a remote one. The runtime loads every catalog with the label `occasion-catalog`.
 4. **Icons tab**: add icons. Each icon needs:
@@ -57,7 +57,7 @@ To work on the package itself, clone the repository into your project's `Package
    Then pick the icon on an occasion.
 5. **Simulator** (right side of the Occasions tab): test any date, store and language. Click or drag the timeline's bars to pick a date and the simulator opens, or right-click an occasion > **Simulate**, or press **Simulator** on the timeline toolbar. It also shows the icon changes coming up and can drive Play Mode.
 
-**Tools > OccasionKit > Run Self-Test** checks calendars, rules, icon timing, image processing and the Android and iOS build steps.
+**Tools > DevDude > OccasionKit > Run Self-Test** checks calendars, rules, icon timing, image processing and the Android and iOS build steps.
 
 ## Runtime
 

@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace OccasionKit.EditorTools
 {
-    /// <summary>Window > OccasionKit: occasions with their timeline and simulator, the icon set, validation and settings.</summary>
+    /// <summary>Tools > DevDude > OccasionKit > Open Window: occasions with their timeline and simulator, the icon set, validation and settings.</summary>
     internal sealed partial class OccasionKitWindow : EditorWindow
     {
         private enum Tab
@@ -32,7 +32,7 @@ namespace OccasionKit.EditorTools
         private int _errorCount;
         private int _warningCount;
 
-        [MenuItem("Window/OccasionKit", priority = 2100)]
+        [MenuItem("Tools/DevDude/OccasionKit/Open Window", priority = 2000)]
         public static OccasionKitWindow Open()
         {
             var window = GetWindow<OccasionKitWindow>();

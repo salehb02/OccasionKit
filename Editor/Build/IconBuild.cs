@@ -41,7 +41,7 @@ namespace OccasionKit.EditorTools
             var errors = OccasionValidator.ValidateIcons(settings).Where(i => i.Severity == IssueSeverity.Error).ToList();
 
             if (errors.Count > 0)
-                throw new BuildFailedException("OccasionKit icon set has errors (Window > OccasionKit > Validation):\n" + string.Join("\n", errors.Select(e => "• " + e.Message)));
+                throw new BuildFailedException("OccasionKit icon set has errors (Tools > DevDude > OccasionKit > Open Window, Validation tab):\n" + string.Join("\n", errors.Select(e => "• " + e.Message)));
         }
     }
 }

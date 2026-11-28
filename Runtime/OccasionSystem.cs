@@ -327,7 +327,7 @@ namespace OccasionKit
                     }
                     else if (locations.Count == 0)
                     {
-                        Debug.LogWarning($"[OccasionKit] No OccasionCatalog is addressable with the key \"{_config.CatalogKey}\". Window > OccasionKit sets one up.");
+                        Debug.LogWarning($"[OccasionKit] No OccasionCatalog is addressable with the key \"{_config.CatalogKey}\". Tools > DevDude > OccasionKit > Open Window sets one up.");
                         _catalogsLoaded = true;
                     }
                     else
